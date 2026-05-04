@@ -59,7 +59,13 @@ export default function HomePage() {
           initial={providerConfig}
           onContinue={(cfg) => {
             setProviderConfig(cfg);
-            setStep('spec');
+            // Reprocess flow: if a photo is already loaded, jump straight
+            // to processing with the new provider instead of restarting.
+            if (sourceFile) {
+              setStep('processing');
+            } else {
+              setStep('spec');
+            }
           }}
         />
       )}
@@ -88,6 +94,9 @@ export default function HomePage() {
 
       {step === 'processing' && sourceFile && providerConfig && (
         <ProcessingScreen
+          // Key forces remount when the provider changes — required for
+          // the reprocess flow to re-run the pipeline.
+          key={providerConfig.providerId}
           source={sourceFile}
           specId={specId}
           providerConfig={providerConfig}
@@ -101,16 +110,24 @@ export default function HomePage() {
         />
       )}
 
-      {step === 'result' && resultPng && resultPdf && (
+      {step === 'result' && resultPng && resultPdf && providerConfig && (
         <ResultScreen
           png={resultPng}
           pdf={resultPdf}
           specId={specId}
+          providerConfig={providerConfig}
           onRestart={() => {
             setResultPng(null);
             setResultPdf(null);
             setSourceFile(null);
             setStep('capture');
+          }}
+          onChangeProvider={() => {
+            // Keep sourceFile so the user can reprocess after switching
+            // providers. Clear the previous result so we don't show stale data.
+            setResultPng(null);
+            setResultPdf(null);
+            setStep('provider');
           }}
         />
       )}

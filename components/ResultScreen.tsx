@@ -2,16 +2,27 @@
 
 import { useEffect, useState } from 'react';
 import { PHOTO_SPECS, type PhotoSpecId } from '@/lib/photo-spec';
+import { PROVIDERS, type ProviderConfig } from '@/lib/providers';
 
 interface Props {
   png: Blob;
   pdf: Blob;
   specId: PhotoSpecId;
+  providerConfig: ProviderConfig;
   onRestart: () => void;
+  onChangeProvider: () => void;
 }
 
-export function ResultScreen({ png, pdf, specId, onRestart }: Props) {
+export function ResultScreen({
+  png,
+  pdf,
+  specId,
+  providerConfig,
+  onRestart,
+  onChangeProvider,
+}: Props) {
   const spec = PHOTO_SPECS[specId];
+  const provider = PROVIDERS[providerConfig.providerId];
   const [pngUrl, setPngUrl] = useState<string | null>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
@@ -27,13 +38,14 @@ export function ResultScreen({ png, pdf, specId, onRestart }: Props) {
   }, [png, pdf]);
 
   const baseName = `passport-${spec.id}`;
+  const usedOnDevice = providerConfig.providerId === 'on-device';
 
   return (
     <div className="space-y-4">
       <div className="card space-y-3">
         <h2 className="text-lg font-semibold">Your photo is ready</h2>
         <p className="text-sm text-ink-700">
-          {spec.label}. White background, 300 DPI.
+          {spec.label}. White background, 300 DPI. Processed by {provider.name}.
         </p>
         {pngUrl && (
           <div className="flex justify-center rounded-2xl bg-ink-900/5 p-4">
@@ -46,6 +58,27 @@ export function ResultScreen({ png, pdf, specId, onRestart }: Props) {
           </div>
         )}
       </div>
+
+      {/* Quality hint — visible only when on-device was used. */}
+      {usedOnDevice && (
+        <div className="card space-y-3 border-amber-200 bg-amber-50/50">
+          <h3 className="text-sm font-semibold text-amber-900">
+            Notice white patches on your shirt or hair edges?
+          </h3>
+          <p className="text-sm text-amber-900">
+            On-device background removal is fast and free, but can struggle with
+            dark or textured clothing. For a cleaner result, switch to a cloud
+            provider (most have a free tier) and reprocess the same photo.
+          </p>
+          <button
+            type="button"
+            onClick={onChangeProvider}
+            className="btn-secondary w-full border-amber-300"
+          >
+            Switch provider and reprocess
+          </button>
+        </div>
+      )}
 
       <div className="grid gap-3">
         {pngUrl && (

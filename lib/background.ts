@@ -44,7 +44,14 @@ async function removeBackgroundOnDevice(input: Blob | File): Promise<Blob> {
 
   try {
     return await mod.removeBackground(input, {
-      model: 'isnet_quint8',
+      // Default 'isnet_fp16' (~80MB) is meaningfully more accurate on
+      // textured clothing than 'isnet_quint8' (~40MB). The smaller model
+      // produces visible artifacts on dark/patterned shirts where the
+      // foreground/background contrast is low — exactly the failure mode
+      // we hit in real-world Indian passport photos.
+      // Trade-off: 80MB first-run download (cached after) instead of 40MB,
+      // and ~10-15s processing instead of ~5-10s. Worth it for accuracy.
+      model: 'isnet_fp16',
       output: { format: 'image/png', quality: 0.95 },
     });
   } catch (err) {
