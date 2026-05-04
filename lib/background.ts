@@ -42,18 +42,36 @@ async function removeBackgroundOnDevice(input: Blob | File): Promise<Blob> {
     );
   }
 
+  // Hard timeout — protects against the imgly call hanging indefinitely
+  // (which can happen if the model registry doesn't recognise the requested
+  // model name, or if Safari silently aborts a large model download).
+  // 90 seconds is long enough for a slow first-run download on 4G, but
+  // short enough that users see an error rather than waiting forever.
+  const TIMEOUT_MS = 90_000;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(
+      () =>
+        reject(
+          new Error(
+            'On-device background removal timed out (>90s). Your network may be slow or your device may be low on memory. Go back to step 1 and choose a cloud provider.',
+          ),
+        ),
+      TIMEOUT_MS,
+    );
+  });
+
   try {
-    return await mod.removeBackground(input, {
-      // Default 'isnet_fp16' (~80MB) is meaningfully more accurate on
-      // textured clothing than 'isnet_quint8' (~40MB). The smaller model
-      // produces visible artifacts on dark/patterned shirts where the
-      // foreground/background contrast is low — exactly the failure mode
-      // we hit in real-world Indian passport photos.
-      // Trade-off: 80MB first-run download (cached after) instead of 40MB,
-      // and ~10-15s processing instead of ~5-10s. Worth it for accuracy.
-      model: 'isnet_fp16',
+    const removalPromise = mod.removeBackground(input, {
+      // 'isnet_quint8' is the small (~40MB) quantized model. Slightly less
+      // accurate than 'isnet_fp16' (~80MB) but reliably loads from the
+      // imgly CDN. We tried fp16 and it caused stuck-progress bugs on
+      // iPhone Safari, so we're staying on the proven-working option.
+      // For higher quality, users should switch to a cloud provider via
+      // the "Reprocess with cloud provider" button on the result screen.
+      model: 'isnet_quint8',
       output: { format: 'image/png', quality: 0.95 },
     });
+    return await Promise.race([removalPromise, timeoutPromise]);
   } catch (err) {
     // Common failure modes here:
     //  - Out of memory (low-end device)
