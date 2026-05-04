@@ -1,24 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Enable cross-origin isolation so SharedArrayBuffer works for the
-  // on-device WASM background remover. esm.sh and CDN-served MediaPipe
-  // assets advertise the right cross-origin headers, so this should not
-  // break anything. If it does in your environment, remove these and
-  // imgly will fall back to single-threaded mode automatically.
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
-        ],
-      },
-    ];
-  },
+  // No COOP/COEP headers — they break cross-origin module imports from esm.sh
+  // on iOS Safari with the error "Importing a module script failed".
+  // imgly's WASM falls back to single-threaded mode without SharedArrayBuffer,
+  // which is slightly slower but works reliably across all platforms.
 };
 
 module.exports = nextConfig;
-
-
