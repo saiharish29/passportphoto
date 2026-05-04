@@ -414,14 +414,34 @@ function CameraCapture({ support, onShot, onCancel }: CameraProps) {
     );
   }
 
+  // Compute aspect ratio of the actual video stream, defaulting to 3:4
+  // (portrait) until we have real dimensions. We also detect "rotated"
+  // streams: if the stream is wider than tall on a phone in portrait, the
+  // browser is reporting landscape pixels — we render in portrait by
+  // letting object-cover crop, NOT by rotating, because rotation would
+  // mismatch the captured pixels.
+  const videoAspect =
+    resolution && resolution.h > 0 ? resolution.w / resolution.h : 3 / 4;
+
+  // Container aspect: on mobile we always want a portrait viewport
+  // (taller than wide) regardless of stream shape, because the user is
+  // composing a portrait photo. The video inside uses object-cover.
+  const isPortraitContainer = true;
+  const containerAspectStyle = isPortraitContainer
+    ? { aspectRatio: '3 / 4' }
+    : { aspectRatio: `${videoAspect}` };
+
   return (
     <div className="space-y-3">
-      <div className="relative overflow-hidden rounded-3xl bg-black">
+      <div
+        className="relative overflow-hidden rounded-3xl bg-black"
+        style={containerAspectStyle}
+      >
         <video
           ref={videoRef}
           playsInline
           muted
-          className="aspect-[3/4] w-full bg-black object-cover"
+          className="absolute inset-0 h-full w-full bg-black object-cover"
           // Mirror the live preview only — captured pixels are NOT mirrored
           style={{ transform: facing === 'user' ? 'scaleX(-1)' : 'none' }}
         />
@@ -485,39 +505,54 @@ function CameraCapture({ support, onShot, onCancel }: CameraProps) {
 }
 
 function FaceGuideOverlay() {
+  // ViewBox is 300×400 (3:4 ratio) to match the container's aspect.
+  // preserveAspectRatio="none" stretches the SVG to exactly fill the
+  // container regardless of its actual rendered pixel dimensions.
+  //
+  // Oval geometry — for a passport photo composition:
+  //   - Centred horizontally at x=150
+  //   - Centred slightly above vertical centre (y=170 of 400) to leave
+  //     room for shoulders below
+  //   - Width 130 (43% of frame width) — matches face-fills-frame at ~70%
+  //   - Height 180 (45% of frame height) — slightly taller than face only,
+  //     to include hair and chin
+  //   - Eye-line guide at y=140 (35% from top — matches our crop target)
   return (
     <svg
       className="pointer-events-none absolute inset-0 h-full w-full"
-      viewBox="0 0 100 133"
+      viewBox="0 0 300 400"
       preserveAspectRatio="none"
       aria-hidden
     >
       <defs>
         <mask id="oval-mask">
-          <rect width="100" height="133" fill="white" />
-          <ellipse cx="50" cy="56" rx="22" ry="30" fill="black" />
+          <rect width="300" height="400" fill="white" />
+          <ellipse cx="150" cy="170" rx="80" ry="115" fill="black" />
         </mask>
       </defs>
-      <rect width="100" height="133" fill="rgba(0,0,0,0.35)" mask="url(#oval-mask)" />
+      {/* Dimmed area outside the oval */}
+      <rect width="300" height="400" fill="rgba(0,0,0,0.4)" mask="url(#oval-mask)" />
+      {/* Oval outline */}
       <ellipse
-        cx="50"
-        cy="56"
-        rx="22"
-        ry="30"
+        cx="150"
+        cy="170"
+        rx="80"
+        ry="115"
         fill="none"
         stroke="white"
-        strokeWidth="0.4"
-        strokeDasharray="2 1.5"
+        strokeWidth="1.2"
+        strokeDasharray="6 4"
         opacity="0.9"
       />
+      {/* Eye-line guide (dashed horizontal line) */}
       <line
-        x1="32"
-        y1="42"
-        x2="68"
-        y2="42"
+        x1="80"
+        y1="140"
+        x2="220"
+        y2="140"
         stroke="white"
-        strokeWidth="0.3"
-        strokeDasharray="1 1"
+        strokeWidth="0.8"
+        strokeDasharray="3 3"
         opacity="0.6"
       />
     </svg>

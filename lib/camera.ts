@@ -348,11 +348,14 @@ export async function probeCameraDevices(support: CameraSupport): Promise<Camera
 export function buildVideoConstraints(facing: 'user' | 'environment'): MediaTrackConstraints {
   return {
     facingMode: { ideal: facing },
-    width: { ideal: 1920, min: 640 },
-    height: { ideal: 1920, min: 480 },
-    // No aspectRatio hint — webcams are typically 16:9 or 4:3, asking for
-    // a square aspect causes OverconstrainedError on some browsers/drivers.
-    // We crop to spec aspect after capture anyway.
+    // Industry practice (Onfido, Stripe Identity): request HEIGHT only.
+    // The browser picks the camera's natural aspect ratio (16:9 or 4:3) and
+    // gives us the highest resolution that satisfies the height target.
+    // Asking for square (aspectRatio: 1) caused iOS Safari to rotate frames
+    // 180° on iPhone 13 — a known bug going back to iOS 12.
+    height: { ideal: 1080, min: 480 },
+    // No width, no aspectRatio, no facingMode 'exact' — all of these can
+    // trigger OverconstrainedError on otherwise-fine cameras.
     ...({ focusMode: 'continuous' } as Record<string, unknown>),
   };
 }
